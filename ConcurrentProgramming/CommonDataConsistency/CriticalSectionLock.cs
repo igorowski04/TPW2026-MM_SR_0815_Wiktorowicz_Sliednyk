@@ -46,6 +46,7 @@ namespace TP.ConcurrentProgramming.CommonDataConsistency
       {
         int _value = m_Random.Next(0, 10000);
         m_IntegerA = _value;
+        Thread.Yield();
         m_IntegerB = -_value;
         IsConsistent &= m_IntegerA + m_IntegerB == 0;
       }
