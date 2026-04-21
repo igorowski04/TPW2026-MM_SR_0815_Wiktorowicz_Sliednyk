@@ -18,6 +18,9 @@ namespace TP.ConcurrentProgramming.Data.Test
     public class DataImplementationUnitTest
     {
         [TestMethod]
+        /// |==============================================|
+        /// |-=- KONSTRUKTOR DATA IMPLEMENTATION DZIALA -=-|
+        /// |==============================================|
         public void ConstructorTestMethod()
         {
             using (DataImplementation newInstance = new DataImplementation())

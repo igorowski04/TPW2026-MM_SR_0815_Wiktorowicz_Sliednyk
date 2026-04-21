@@ -15,14 +15,20 @@ namespace TP.ConcurrentProgramming.Data.Test
 {
     [TestClass]
     public class DataAbstractAPIUnitTest
-    {
+    {   
+
         [TestMethod]
+        /// |======================================|
+        /// |-=- WIELE INSTANCJI WARSTWY DANYCH -=-|
+        /// |======================================|
+        /// | - Sprawdza, czy za razem tworzona jest nowa instancja warstwy danych. W celach testowych.
+        /// | Wcześniej był Singleton, który gwarantował, że zawsze będziemy mieć jedną instancję - niepraktyczne.
         public void ConstructorTestTestMethod()
         {
             DataAbstractAPI instance1 = DataAbstractAPI.GetDataLayer();
             DataAbstractAPI instance2 = DataAbstractAPI.GetDataLayer();
 
-            // Zmieniono na AreNotSame - upewniamy się, że nie mamy już Singletona
+            // | - AreEqual: czy ma taką samą wartość w środku, | - AreSame - czy taka sama referencja
             Assert.AreNotSame(instance1, instance2);
 
             instance1.Dispose();

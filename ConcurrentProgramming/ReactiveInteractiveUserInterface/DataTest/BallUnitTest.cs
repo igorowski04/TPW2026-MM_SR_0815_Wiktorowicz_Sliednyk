@@ -14,8 +14,12 @@ namespace TP.ConcurrentProgramming.Data.Test
 {
     [TestClass]
     public class BallUnitTest
-    {
+    {   
+        
         [TestMethod]
+        /// |==============================|
+        /// |-=- POPRAWNA INICJALIZACJA -=-|
+        /// |==============================|
         public void ConstructorTestMethod()
         {
             Vector testingVector = new Vector(0.0, 0.0);
@@ -25,6 +29,10 @@ namespace TP.ConcurrentProgramming.Data.Test
         }
 
         [TestMethod]
+        /// |=============================|
+        /// |-=- DZIAŁANIE METODY MOVE -=-|
+        /// |=============================|
+        /// | - Test określa, czy metoda Move poprawnie wykonuje krok i po drugie, czy ogłasza innym, że wykonała krok
         public void MoveTestMethod()
         {
             Vector initialPosition = new(10.0, 10.0);
