@@ -8,55 +8,42 @@
 //
 //_____________________________________________________________________________________________________________________________________
 
+using System;
+
 namespace TP.ConcurrentProgramming.Data
 {
-  public abstract class DataAbstractAPI : IDisposable
-  {
-    #region Layer Factory
-
-    public static DataAbstractAPI GetDataLayer()
+    public abstract class DataAbstractAPI : IDisposable
     {
-      return modelInstance.Value;
+        #region Layer Factory
+            // Notka: zaimplementowane w taki sposób, żeby przy każdym wywołaniu tworzona jest nowa instancja warstwy danych.
+            //        Zrobione tak, żeby podczas uruchomienia symulacji i zmiany stanu, nie wpływało to na inną instancję. 
+            //        Dzięki temu testy są niezależne i zawsze sprawdzają żądaną funkcjonalność.
+            public static DataAbstractAPI GetDataLayer()
+            {
+                return new DataImplementation();
+            }
+        #endregion Layer Factory
+
+        #region public API
+            // Nowe: zmienne height oraz width
+            public abstract void Start(int numberOfBalls, double width, double height, Action<IVector, IBall> upperLayerHandler);
+        #endregion public API
+
+        #region IDisposable
+            public abstract void Dispose();
+        #endregion IDisposable
+
+    }
+    public interface IVector
+    {
+        double x { get; init; }
+        double y { get; init; }
     }
 
-    #endregion Layer Factory
-
-    #region public API
-
-    public abstract void Start(int numberOfBalls, Action<IVector, IBall> upperLayerHandler);
-
-    #endregion public API
-
-    #region IDisposable
-
-    public abstract void Dispose();
-
-    #endregion IDisposable
-
-    #region private
-
-    private static Lazy<DataAbstractAPI> modelInstance = new Lazy<DataAbstractAPI>(() => new DataImplementation());
-
-    #endregion private
-  }
-
-  public interface IVector
-  {
-    /// <summary>
-    /// The X component of the vector.
-    /// </summary>
-    double x { get; init; }
-
-    /// <summary>
-    /// The y component of the vector.
-    /// </summary>
-    double y { get; init; }
-  }
-
-  public interface IBall
-  {
-    event EventHandler<IVector> NewPositionNotification;
-
-    IVector Velocity { get; set; }
-  }
+    
+    public interface IBall
+    {
+        event EventHandler<IVector> NewPositionNotification;
+        IVector Velocity { get; set; }
+    }
 }
