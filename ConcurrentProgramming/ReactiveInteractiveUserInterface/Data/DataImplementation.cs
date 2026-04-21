@@ -18,15 +18,12 @@ namespace TP.ConcurrentProgramming.Data
     internal class DataImplementation : DataAbstractAPI
     {
         #region ctor
-            public DataImplementation()
-            {
-                // startuje dopiero w metodzie start
-            }
+        public DataImplementation() { }
         #endregion ctor
 
         #region DataAbstractAPI
 
-        public override void Start(int numberOfBalls, double width, double height,Action<IVector, IBall> upperLayerHandler)
+        public override void Start(int numberOfBalls, double width, double height, Action<IVector, IBall> upperLayerHandler)
         {
             if (Disposed)
                 throw new ObjectDisposedException(nameof(DataImplementation));
@@ -36,7 +33,8 @@ namespace TP.ConcurrentProgramming.Data
             MoveTimer?.Dispose();
             BallsList.Clear();
 
-            for (int i = 0; i < numberOfBalls; i++) {
+            for (int i = 0; i < numberOfBalls; i++)
+            {
                 double startX = RandomGenerator.NextDouble() * (width - 2 * BallRadius);
                 double startY = RandomGenerator.NextDouble() * (height - 2 * BallRadius);
                 Vector startingPosition = new(startX, startY);
@@ -63,10 +61,10 @@ namespace TP.ConcurrentProgramming.Data
             {
                 if (disposing)
                 {
-                    MoveTimer.Dispose();
+                    MoveTimer?.Dispose();
                     BallsList.Clear();
                 }
-            Disposed = true;
+                Disposed = true;
             }
             else
                 throw new ObjectDisposedException(nameof(DataImplementation));
@@ -74,7 +72,6 @@ namespace TP.ConcurrentProgramming.Data
 
         public override void Dispose()
         {
-            // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
@@ -83,7 +80,6 @@ namespace TP.ConcurrentProgramming.Data
 
         #region private
 
-        //private bool disposedValue;
         private bool Disposed = false;
         private Timer? MoveTimer;
         private Random RandomGenerator = new();
@@ -93,10 +89,17 @@ namespace TP.ConcurrentProgramming.Data
 
         private void Move(object? state)
         {
-            
             try
             {
                 MoveTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+
+                for (int i = 0; i < BallsList.Count; i++)
+                {
+                    for (int j = i + 1; j < BallsList.Count; j++)
+                    {
+                        CheckCollision(BallsList[i], BallsList[j]);
+                    }
+                }
 
                 foreach (Ball item in BallsList)
                 {
@@ -107,9 +110,41 @@ namespace TP.ConcurrentProgramming.Data
             {
                 MoveTimer?.Change(20, Timeout.Infinite);
             }
-
         }
-     
+
+        private void CheckCollision(Ball b1, Ball b2)
+        {
+            double c1X = b1.Position.x + b1.Radius;
+            double c1Y = b1.Position.y + b1.Radius;
+            double c2X = b2.Position.x + b2.Radius;
+            double c2Y = b2.Position.y + b2.Radius;
+
+            double dx = c2X - c1X;
+            double dy = c2Y - c1Y;
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+
+            if (distance == 0) return;
+
+            if (distance <= b1.Radius + b2.Radius)
+            {
+                double nx = dx / distance;
+                double ny = dy / distance;
+
+                double relativeVelocityX = b2.Velocity.x - b1.Velocity.x;
+                double relativeVelocityY = b2.Velocity.y - b1.Velocity.y;
+
+                double dotProduct = relativeVelocityX * nx + relativeVelocityY * ny;
+
+                if (dotProduct > 0)
+                    return;
+
+                double impulseX = nx * dotProduct;
+                double impulseY = ny * dotProduct;
+
+                b1.Velocity = new Vector(b1.Velocity.x + impulseX, b1.Velocity.y + impulseY);
+                b2.Velocity = new Vector(b2.Velocity.x - impulseX, b2.Velocity.y - impulseY);
+            }
+        }
 
         #endregion private
 

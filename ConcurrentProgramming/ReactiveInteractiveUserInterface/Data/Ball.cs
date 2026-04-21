@@ -15,6 +15,7 @@ namespace TP.ConcurrentProgramming.Data
     internal class Ball : IBall
     {
         #region ctor
+
         internal Ball(Vector initialPosition, Vector initialVelocity, double radius, double boardWidth, double boardHeight)
         {
             Position = initialPosition;
@@ -23,16 +24,22 @@ namespace TP.ConcurrentProgramming.Data
             BoardWidth = boardWidth;
             BoardHeight = boardHeight;
         }
+
         #endregion ctor
 
         #region IBall
+
         public event EventHandler<IVector>? NewPositionNotification;
+
         public IVector Velocity { get; set; }
+
         #endregion IBall
 
         #region private
-        private Vector Position;
-        private readonly double Radius;
+
+        internal Vector Position { get; private set; }
+        internal double Radius { get; }
+
         private readonly double BoardWidth;
         private readonly double BoardHeight;
 
@@ -74,8 +81,8 @@ namespace TP.ConcurrentProgramming.Data
             Velocity = new Vector(newVx, newVy);
 
             RaiseNewPositionChangeNotification();
+        }
 
         #endregion private
-        }
     }
 }
