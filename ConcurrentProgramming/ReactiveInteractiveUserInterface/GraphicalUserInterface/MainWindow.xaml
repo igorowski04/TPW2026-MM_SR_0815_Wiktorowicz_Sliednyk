@@ -27,14 +27,14 @@
         </StackPanel>
 
         <!-- STÓŁ BILARDOWY -->
-        <!-- Tutaj nałożyliśmy twarde wymiary 700x400 i wyśrodkowaliśmy ramkę -->
-        <Border Grid.Row="1" Width="700" Height="400" HorizontalAlignment="Center" VerticalAlignment="Center" BorderThickness="4" BorderBrush="Green" Margin="10" Background="WhiteSmoke">
+        <!-- Usunąłem stąd Width i Height, ramka sama dopasuje się do środka -->
+        <Border Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" BorderThickness="4" BorderBrush="Green" Margin="10" Background="WhiteSmoke">
             <ItemsControl ItemsSource="{Binding Balls}">
 
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <!-- Canvas już nie ma wymiarów, po prostu wypełnia ramkę w 100% -->
-                        <Canvas ClipToBounds="True" Background="Transparent"/>
+                        <!-- Twarde wymiary wędrują tutaj! Teraz płótno ma równe 700x400, a ramka je tylko obudowuje -->
+                        <Canvas Width="700" Height="400" ClipToBounds="True" Background="Transparent"/>
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
 
