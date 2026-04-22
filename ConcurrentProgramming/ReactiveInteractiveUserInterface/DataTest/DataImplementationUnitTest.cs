@@ -35,6 +35,9 @@ namespace TP.ConcurrentProgramming.Data.Test
         }
 
         [TestMethod]
+        /// |=========================================================|
+        /// |-=- NIE USUNIESZ USUNIĘTEGO / NIEISTNIEJĄCEGO OBIEKTU -=-|
+        /// |=========================================================|
         public void DisposeTestMethod()
         {
             DataImplementation newInstance = new DataImplementation();
@@ -57,6 +60,10 @@ namespace TP.ConcurrentProgramming.Data.Test
         }
 
         [TestMethod]
+        /// |===========================|
+        /// |-=- METODA START DZIAŁA -=-|
+        /// |===========================|
+        /// | - Test sprawdza, czy metoda Start generuje kule i komunikuje sięz warstwami wyżej
         public void StartTestMethod()
         {
             using (DataImplementation newInstance = new DataImplementation())
