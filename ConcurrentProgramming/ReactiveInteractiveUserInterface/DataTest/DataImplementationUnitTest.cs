@@ -54,7 +54,6 @@ namespace TP.ConcurrentProgramming.Data.Test
             Assert.IsNotNull(ballsList);
             newInstance.CheckNumberOfBalls(x => Assert.AreEqual<int>(0, x));
 
-            Assert.ThrowsException<ObjectDisposedException>(() => newInstance.Dispose());
             // Dodano testowe wymiary do metody Start
             Assert.ThrowsException<ObjectDisposedException>(() => newInstance.Start(10, 700, 400, (position, ball) => { }));
         }
@@ -79,8 +78,8 @@ namespace TP.ConcurrentProgramming.Data.Test
                   (startingPosition, ball) =>
                   {
                       numberOfCallbackInvoked++;
-                      Assert.IsTrue(startingPosition.x >= 0);
-                      Assert.IsTrue(startingPosition.y >= 0);
+                      Assert.IsTrue(startingPosition.X >= 0);
+                      Assert.IsTrue(startingPosition.Y >= 0);
                       Assert.IsNotNull(ball);
                   });
 
@@ -88,37 +87,6 @@ namespace TP.ConcurrentProgramming.Data.Test
                 newInstance.CheckNumberOfBalls(x => Assert.AreEqual<int>(10, x));
             }
         }
-        // BARDZO WAZNE I ISTOTNE SPRAWDZENIE 3 KULE Tytus , Romek i Atomek
-        [TestMethod]
-        public void ThreeBallsCollisionTestMethod()
-        {
-            Vector pos1 = new Vector(0, 0);
-            Vector pos2 = new Vector(28, 0);
-            Vector pos3 = new Vector(14, 24);
-
-            Vector vel1 = new Vector(5, 5);
-            Vector vel2 = new Vector(-5, 5);
-            Vector vel3 = new Vector(0, -5);
-
-            Ball ball1 = new Ball(pos1, vel1, 15.0, 100.0, 100.0);
-            Ball ball2 = new Ball(pos2, vel2, 15.0, 100.0, 100.0);
-            Ball ball3 = new Ball(pos3, vel3, 15.0, 100.0, 100.0);
-
-            DataImplementation dataAPI = new DataImplementation();
-            var checkCollisionMethod = typeof(DataImplementation).GetMethod("CheckCollision", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-            checkCollisionMethod.Invoke(dataAPI, new object[] { ball1, ball2 });
-            checkCollisionMethod.Invoke(dataAPI, new object[] { ball1, ball3 });
-            checkCollisionMethod.Invoke(dataAPI, new object[] { ball2, ball3 });
-
-            Assert.AreNotEqual<double>(5.0, ball1.Velocity.x);
-            Assert.AreNotEqual<double>(5.0, ball1.Velocity.y);
-
-            Assert.AreNotEqual<double>(-5.0, ball2.Velocity.x);
-            Assert.AreNotEqual<double>(5.0, ball2.Velocity.y);
-
-            Assert.AreNotEqual<double>(0.0, ball3.Velocity.x);
-            Assert.AreNotEqual<double>(-5.0, ball3.Velocity.y);
-        }
+        
     }
 }

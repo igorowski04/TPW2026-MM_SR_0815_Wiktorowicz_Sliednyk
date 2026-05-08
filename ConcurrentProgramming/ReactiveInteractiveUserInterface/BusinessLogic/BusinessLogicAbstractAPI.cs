@@ -16,13 +16,12 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         #region Layer Factory
             public static BusinessLogicAbstractAPI GetBusinessLogicLayer()
             {
-            // Tak jak w przypadku warstwy danych: tworzymy zawsze nową instancję, aby każdy test był niezależny
-            return new BusinessLogicImplementation();
+                // Tak jak w przypadku warstwy danych: tworzymy zawsze nową instancję, aby każdy test był niezależny
+                return new BusinessLogicImplementation();
             }
         #endregion Layer Factory
 
         #region Layer API
-            public static readonly Dimensions GetDimensions = new(10.0, 10.0, 10.0);
             public abstract void Start(int numberOfBalls, double width, double height, Action<IPosition, IBall> upperLayerHandler);
             
             #region IDisposable
@@ -31,19 +30,21 @@ namespace TP.ConcurrentProgramming.BusinessLogic
 
         #endregion Layer API
     }
-    /// <summary>
-    /// Immutable type representing table dimensions
-    /// </remarks>
-    public record Dimensions(double BallDimension, double TableHeight, double TableWidth);
-
+    // Wycieliśmy Position, ponieważ teraz okno będzie przystosowywać się do naszego okna dialogowego
+    // Wcześniej na szywno ustawialiśmy wielkość kuli i okna. 
     public interface IPosition
-    {
-        double x { get; init; }
-        double y { get; init; }
+    {   
+        // Usunięte init, ponieważ jest to interfejs kontrakt pomiędzy warstwą logiki,
+        //  a interfejsem graficznym. Nie potrzebuje on ustawiać tej wartości na nowo, 
+        //  tylko ją odczytać
+        double X { get; }
+        double Y { get; }
     }
 
     public interface IBall 
     {
         event EventHandler<IPosition> NewPositionNotification;
+
+        double Radius { get; }
     }
 }

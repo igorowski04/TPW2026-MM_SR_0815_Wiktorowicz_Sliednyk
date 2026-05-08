@@ -8,25 +8,34 @@
 //
 //_____________________________________________________________________________________________________________________________________
 using System;
+using DataBall = TP.ConcurrentProgramming.Data.IBall;
 
 namespace TP.ConcurrentProgramming.BusinessLogic
 {
-    internal class Ball : IBall
+    internal class BusinessBall : IBall
     {
-        public Ball(Data.IBall ball)
+        // ===============
+        // -=- ZMIENNE -=-
+        // ===============
+        private readonly DataBall _dataBall;
+        public event EventHandler<IPosition>? NewPositionNotification;
+        public double Radius => _dataBall.Radius;
+
+
+
+        public BusinessBall(DataBall dataBall)
         {
-            ball.NewPositionNotification += RaisePositionChangeEvent;
+            _dataBall = dataBall;
+            
+            // wzorzec obserwatora
+            _dataBall.NewPositionNotification += DataBall_NewPositionNotification;
+        }
+            
+        // Funckja tłumacząca wekror z warstwy danych, na pozycję
+        private void DataBall_NewPositionNotification(object? sender, TP.ConcurrentProgramming.Data.IVector e)
+        {
+            NewPositionNotification?.Invoke(this, new Position(e.X, e.Y));
         }
 
-        #region IBall
-            public event EventHandler<IPosition>? NewPositionNotification;
-        #endregion IBall
-
-        #region private
-            private void RaisePositionChangeEvent(object? sender, Data.IVector e)
-            {
-                NewPositionNotification?.Invoke(this, new Position(e.x, e.y));
-            }
-        #endregion private
     }
 }

@@ -14,75 +14,39 @@ namespace TP.ConcurrentProgramming.Data
 {
     internal class Ball : IBall
     {
-        #region ctor
+        // ================================
+        // -=- Zmienne razem z getterem -=-
+        // ================================
 
-        internal Ball(Vector initialPosition, Vector initialVelocity, double radius, double boardWidth, double boardHeight)
-        {
-            Position = initialPosition;
-            Velocity = initialVelocity;
-            Radius = radius;
-            BoardWidth = boardWidth;
-            BoardHeight = boardHeight;
-        }
-
-        #endregion ctor
-
-        #region IBall
-
+        private IVector _position;
         public event EventHandler<IVector>? NewPositionNotification;
 
+        // Promień i prędkość kuli
+        public double Radius { get; }
         public IVector Velocity { get; set; }
-
-        #endregion IBall
-
-        #region private
-
-        internal Vector Position { get; private set; }
-        internal double Radius { get; }
-
-        private readonly double BoardWidth;
-        private readonly double BoardHeight;
-
-        private void RaiseNewPositionChangeNotification()
+        
+        // ten fragment pozwala przypisać nową wartość pozycji kuli przy pomocy set.
+        // Kiedy pozycja się zaktualizuje, reszta warstw zostanie powiadomiona o zmianie
+        // .Invoke(kto nadaje, komunikat[zmiana pozycji u nas]) - powiadamia inne warstwy,
+        //  że pozycja została zaktualizowana
+        public IVector Position
         {
-            NewPositionNotification?.Invoke(this, Position);
+            get => _position;
+            set
+            {
+                _position = value;
+                NewPositionNotification?.Invoke(this, _position);
+            }
         }
 
-        internal void Move(Vector delta)
+        // ===================
+        // -=- Konstruktor -=-
+        // ===================
+        internal Ball(IVector initialPosition, IVector initialVelocity, double radius)
         {
-            double newX = Position.x + delta.x;
-            double newY = Position.y + delta.y;
-            double newVx = Velocity.x;
-            double newVy = Velocity.y;
-
-            if (newX <= 0)
-            {
-                newX = 0;
-                newVx = -newVx;
-            }
-            else if (newX + (Radius * 2) >= BoardWidth)
-            {
-                newX = BoardWidth - (Radius * 2);
-                newVx = -newVx;
-            }
-
-            if (newY <= 0)
-            {
-                newY = 0;
-                newVy = -newVy;
-            }
-            else if (newY + (Radius * 2) >= BoardHeight)
-            {
-                newY = BoardHeight - (Radius * 2);
-                newVy = -newVy;
-            }
-
-            Position = new Vector(newX, newY);
-            Velocity = new Vector(newVx, newVy);
-
-            RaiseNewPositionChangeNotification();
+            _position = initialPosition;
+            Velocity = initialVelocity;
+            Radius = radius;
         }
-
-        #endregion private
     }
 }

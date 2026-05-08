@@ -14,44 +14,61 @@ using System;
 namespace TP.ConcurrentProgramming.BusinessLogic.Test
 {
     [TestClass]
-    public class BallUnitTest
+    public class BusinessBallUnitTest
     {
         [TestMethod]
-        public void MoveTestMethod()
+        // |=================================================================|
+        // |-=- BUSINESS BALL POPRAWNIE TŁUMACZY EVENTY Z NIŻSZEJ WARSTWY -=-|
+        // |=================================================================|
+        public void EventTranslationTestMethod()
         {
             DataBallFixture dataBallFixture = new DataBallFixture();
-            Ball newInstance = new(dataBallFixture);
+            BusinessBall newInstance = new(dataBallFixture);
             int numberOfCallBackCalled = 0;
-            newInstance.NewPositionNotification += (sender, position) => { Assert.IsNotNull(sender); Assert.IsNotNull(position); numberOfCallBackCalled++; };
-            dataBallFixture.Move();
+
+            newInstance.NewPositionNotification += (sender, position) =>
+            {
+                Assert.IsNotNull(sender);
+                Assert.IsNotNull(position);
+                Assert.AreEqual(10.0, position.X);
+                numberOfCallBackCalled++;
+            };
+
+            dataBallFixture.TriggerMove();
+
             Assert.AreEqual<int>(1, numberOfCallBackCalled);
         }
 
-        #region testing instrumentation
-
+        // W tym pliku testowym sprawdzamy, czy poprawnie odbieramy sygnały z warstwy danych.
+        // Nie możemy stworzyć instancji kuli z warstwy danych, bo jeśli coś się zepsuje - nie będziemy wiedzieć, która warstwa zawodzi
+        // W tym celu tworzymy sztuczne klasy wydmuszki z warstwy danych, których użyliśmy wyżej w testach
+        #region testingInstrumentation
         private class DataBallFixture : Data.IBall
         {
-            public Data.IVector Velocity { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+            public Data.IVector Velocity { get; set; } = new VectorFixture(0, 0);
+            public Data.IVector Position { get; set; } = new VectorFixture(0, 0);
+            public double Radius { get; } = 15.0; // Dodano brakujący promień!
 
             public event EventHandler<Data.IVector>? NewPositionNotification;
 
-            internal void Move()
+            internal void TriggerMove()
             {
-                NewPositionNotification?.Invoke(this, new VectorFixture(0.0, 0.0));
+                // Sztucznie wywołujemy ruch na pozycję 10, 20
+                NewPositionNotification?.Invoke(this, new VectorFixture(10.0, 20.0));
             }
         }
 
         private class VectorFixture : Data.IVector
         {
-            internal VectorFixture(double X, double Y)
+            internal VectorFixture(double x, double y)
             {
-                x = X; y = Y;
+                X = x; Y = y;
             }
 
-            public double x { get; init; }
-            public double y { get; init; }
+            public double X { get; }
+            public double Y { get; }
         }
+        #endregion testingInstrumentation
 
-        #endregion testing instrumentation
     }
 }

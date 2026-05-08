@@ -15,9 +15,7 @@ using UnderneathLayerAPI = TP.ConcurrentProgramming.BusinessLogic.BusinessLogicA
 
 namespace TP.ConcurrentProgramming.Presentation.Model
 {
-    /// <summary>
-    /// Class Model - implements the <see cref="ModelAbstractApi" />
-    /// </summary>
+
     internal class ModelImplementation : ModelAbstractApi
     {
         internal ModelImplementation() : this(null)
@@ -26,7 +24,7 @@ namespace TP.ConcurrentProgramming.Presentation.Model
         internal ModelImplementation(UnderneathLayerAPI? underneathLayer)
         {
             layerBellow = underneathLayer ?? UnderneathLayerAPI.GetBusinessLogicLayer();
-            eventObservable = Observable.FromEventPattern<BallChaneEventArgs>(this, "BallChanged");
+            eventObservable = Observable.FromEventPattern<BallChangedEventArgs>(this, "BallChanged");
         }
 
         #region ModelAbstractApi
@@ -41,7 +39,7 @@ namespace TP.ConcurrentProgramming.Presentation.Model
             public override IDisposable Subscribe(IObserver<IBall> observer)
             {
                 return eventObservable.Subscribe(x => observer.OnNext(x.EventArgs.Ball), ex => observer.OnError(ex), () => observer.OnCompleted());
-            }  
+            }
 
             public override void Start(int numberOfBalls, double width, double height)
             {
@@ -50,18 +48,19 @@ namespace TP.ConcurrentProgramming.Presentation.Model
         #endregion ModelAbstractApi
 
         #region API
-            public event EventHandler<BallChaneEventArgs>? BallChanged;
+            public event EventHandler<BallChangedEventArgs>? BallChanged;
         #endregion API
 
         #region private
             private bool Disposed = false;
-            private readonly IObservable<EventPattern<BallChaneEventArgs>> eventObservable;
+            private readonly IObservable<EventPattern<BallChangedEventArgs>> eventObservable;
             private readonly UnderneathLayerAPI layerBellow;
 
             private void StartHandler(BusinessLogic.IPosition position, BusinessLogic.IBall ball)
             {
-                ModelBall newBall = new ModelBall(position.x, position.y, ball) { Diameter = 30.0 };
-                BallChanged?.Invoke(this, new BallChaneEventArgs() { Ball = newBall });
+                // Używamy dużych X i Y. Usunięto narzucone Diameter = 30.0!
+                ModelBall newBall = new ModelBall(position.X, position.Y, ball);
+                BallChanged?.Invoke(this, new BallChangedEventArgs() { Ball = newBall });
             }
         #endregion private
 
@@ -86,7 +85,8 @@ namespace TP.ConcurrentProgramming.Presentation.Model
         #endregion TestingInfrastructure
     }
 
-    public class BallChaneEventArgs : EventArgs
+    // Poprawiona literówka (Chane -> Changed)
+    public class BallChangedEventArgs : EventArgs
     {
         public required IBall Ball { get; init; }
     }

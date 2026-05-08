@@ -21,6 +21,11 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel.Test
     public class MainWindowViewModelUnitTest
     {
         [TestMethod]
+        // |=====================================================|
+        // |-=- POPRAWNA REAKCJA VIEW MODEL NA PRZYCISK START -=-|
+        // |=====================================================|
+        // Sprawdza, czy ViewModel poprawnie reazuje na przycisk Start
+        // i zleca Modelowi wygenerowanie odpowiedniej liczby kul.
         public void ConstructorTest()
         {
             ModelNullFixture nullModelFixture = new();
@@ -46,6 +51,11 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel.Test
         }
 
         [TestMethod]
+        // |====================================================|
+        // |-=- POJAWIENIE SIĘ WYGENEROWANYCH KUL NA EKRANIE -=-|
+        // |====================================================|
+        // Sprawdza, czy nowo generowane kule z Modelu natychmiast trafiają do ObservableCollection
+        // czyli, czy fizycznie pojawią się na ekranie.
         public void BehaviorTestMethod()
         {
             ModelSimulatorFixture modelSimulator = new();
@@ -124,7 +134,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel.Test
 
             public ModelSimulatorFixture()
             {
-                eventObservable = Observable.FromEventPattern<BallChaneEventArgs>(this, "BallChanged");
+                eventObservable = Observable.FromEventPattern<BallChangedEventArgs>(this, "BallChanged");
             }
 
             #endregion ctor
@@ -142,7 +152,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel.Test
                 for (int i = 0; i < numberOfBalls; i++)
                 {
                     ModelBall newBall = new ModelBall(0, 0) { };
-                    BallChanged?.Invoke(this, new BallChaneEventArgs() { Ball = newBall });
+                    BallChanged?.Invoke(this, new BallChangedEventArgs() { Ball = newBall });
                 }
             }
 
@@ -155,13 +165,13 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel.Test
 
             #region API
 
-            public event EventHandler<BallChaneEventArgs>? BallChanged;
+            public event EventHandler<BallChangedEventArgs>? BallChanged;
 
             #endregion API
 
             #region private
 
-            private IObservable<EventPattern<BallChaneEventArgs>>? eventObservable = null;
+            private IObservable<EventPattern<BallChangedEventArgs>>? eventObservable = null;
 
             private class ModelBall : ModelIBall
             {

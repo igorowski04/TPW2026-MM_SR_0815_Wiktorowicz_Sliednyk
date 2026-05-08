@@ -18,6 +18,9 @@ namespace TP.ConcurrentProgramming.BusinessLogic.Test
     public class BusinessLogicAbstractAPIUnitTest
     {
         [TestMethod]
+        // |==================================================================================|
+        // |-=- POPRAWNA INICJALIZACJA KONSTRUKTORA, KTÓRY ZWRACA INSTANCJĘ WARSTWY LOGIKI -=-|
+        // |==================================================================================|
         public void BusinessLogicConstructorTestMethod()
         {
             BusinessLogicAbstractAPI instance1 = BusinessLogicAbstractAPI.GetBusinessLogicLayer();
@@ -27,10 +30,6 @@ namespace TP.ConcurrentProgramming.BusinessLogic.Test
             instance2.Dispose();
         }
 
-        [TestMethod]
-        public void GetDimensionsTestMethod()
-        {
-            Assert.AreEqual<Dimensions>(new(10.0, 10.0, 10.0), BusinessLogicAbstractAPI.GetDimensions);
-        }
+
     }
 }

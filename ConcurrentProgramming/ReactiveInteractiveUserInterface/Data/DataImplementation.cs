@@ -11,163 +11,106 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Threading;
+
+// Usunęliśmy z pliku Timer i obliczanie kolizji ponieważ warstwa danych ma służyć tylko do przechowywania informacji
+// Wcześniej dodatkowo uruchamiała Timer i obliczała kolizję dla kul
 
 namespace TP.ConcurrentProgramming.Data
 {
     internal class DataImplementation : DataAbstractAPI
     {
+
+        // ===============
+        // -=- Zmienne -=-
+        // ===============
+        private bool Disposed = false;
+        private Random RandomGenerator = new();
+        private List<Ball> BallsList = [];
+        private readonly double BallRadius = 15.0;
+
         #region ctor
-        public DataImplementation() { }
+            // Domyślny konstruktor
+            public DataImplementation() { }
         #endregion ctor
 
         #region DataAbstractAPI
+            // - Funckja inicjalizuje warstwę danych jako fabrykę. 
+            // - Tworzy określoną liczbę kul o losowych pozycjach i prędkościach 
+            // - width i height jako wymiary planszy
+            // - upperLayerHandler: funkcja, która przekaże nowo otworzoną kulę piętro wyżej
+            public override void Start(int numberOfBalls, double width, double height, Action<IVector, IBall> upperLayerHandler)
+            {   
+                // Jeśli warstwa danych już została zniszona - nie będzie można wystartować funkcji
+                if (Disposed)
+                    throw new ObjectDisposedException(nameof(DataImplementation));
+                if (upperLayerHandler == null)
+                    throw new ArgumentNullException(nameof(upperLayerHandler));
 
-        public override void Start(int numberOfBalls, double width, double height, Action<IVector, IBall> upperLayerHandler)
-        {
-            if (Disposed)
-                throw new ObjectDisposedException(nameof(DataImplementation));
-            if (upperLayerHandler == null)
-                throw new ArgumentNullException(nameof(upperLayerHandler));
+                BallsList.Clear();
+                
+                // Pętla generująca wybraną liczbę kul o losowych koordynatach i losowej prędkości
+                for (int i = 0; i < numberOfBalls; i++)
+                {
+                    double startX = RandomGenerator.NextDouble() * (width - 2 * BallRadius);
+                    double startY = RandomGenerator.NextDouble() * (height - 2 * BallRadius);
+                    Vector startingPosition = new(startX, startY);
 
-            MoveTimer?.Dispose();
-            BallsList.Clear();
-
-            for (int i = 0; i < numberOfBalls; i++)
-            {
-                double startX = RandomGenerator.NextDouble() * (width - 2 * BallRadius);
-                double startY = RandomGenerator.NextDouble() * (height - 2 * BallRadius);
-                Vector startingPosition = new(startX, startY);
-
-                double vx = (RandomGenerator.NextDouble() - 0.5) * 12;
-                double vy = (RandomGenerator.NextDouble() - 0.5) * 12;
-                Vector initialVelocity = new(vx, vy);
-
-                Ball newBall = new(startingPosition, initialVelocity, BallRadius, width, height);
-                BallsList.Add(newBall);
-                upperLayerHandler(startingPosition, newBall);
+                    //double vx = (RandomGenerator.NextDouble() - 0.5) * 12;
+                    double vx = 1000;
+                    //double vy = (RandomGenerator.NextDouble() - 0.5) * 12;
+                    double vy = 1000;
+                    Vector initialVelocity = new(vx, vy);
+                    
+                    
+                    Ball newBall = new(startingPosition, initialVelocity, BallRadius);
+                    BallsList.Add(newBall);
+                    
+                    // Tutaj trafia informacja do wyższej warstwy o tym, że powstała nowa kula
+                    upperLayerHandler(startingPosition, newBall);
+                }
             }
-
-            MoveTimer = new Timer(Move, null, TimeSpan.Zero, Timeout.InfiniteTimeSpan);
-        }
-
         #endregion DataAbstractAPI
 
         #region IDisposable
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!Disposed)
+            // metoda zwalniająca zasoby. Czyści listę kul
+            protected virtual void Dispose(bool disposing)
             {
-                if (disposing)
+                if (!Disposed)
                 {
-                    MoveTimer?.Dispose();
-                    BallsList.Clear();
+                    if (disposing)
+                    {
+                        BallsList.Clear();
+                    }
+                    Disposed = true;
                 }
-                Disposed = true;
             }
-            else
-                throw new ObjectDisposedException(nameof(DataImplementation));
-        }
-
-        public override void Dispose()
-        {
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
-
+            
+            // metoda wywoływane przy zamywaniu aplikacji. Zwalnia pamięć
+            public override void Dispose()
+            {
+                Dispose(disposing: true);
+                GC.SuppressFinalize(this);
+            }
         #endregion IDisposable
 
-        #region private
-
-        private bool Disposed = false;
-        private Timer? MoveTimer;
-        private Random RandomGenerator = new();
-        private List<Ball> BallsList = [];
-
-        private readonly double BallRadius = 15.0;
-
-        private void Move(object? state)
-        {
-            try
-            {
-                MoveTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-
-                for (int i = 0; i < BallsList.Count; i++)
-                {
-                    for (int j = i + 1; j < BallsList.Count; j++)
-                    {
-                        CheckCollision(BallsList[i], BallsList[j]);
-                    }
-                }
-
-                foreach (Ball item in BallsList)
-                {
-                    item.Move((Vector)item.Velocity);
-                }
-            }
-            finally
-            {
-                MoveTimer?.Change(20, Timeout.Infinite);
-            }
-        }
-
-        private void CheckCollision(Ball b1, Ball b2)
-        {
-            double c1X = b1.Position.x + b1.Radius;
-            double c1Y = b1.Position.y + b1.Radius;
-            double c2X = b2.Position.x + b2.Radius;
-            double c2Y = b2.Position.y + b2.Radius;
-
-            double dx = c2X - c1X;
-            double dy = c2Y - c1Y;
-            double distance = Math.Sqrt(dx * dx + dy * dy);
-
-            if (distance == 0) return;
-
-            if (distance <= b1.Radius + b2.Radius)
-            {
-                double nx = dx / distance;
-                double ny = dy / distance;
-
-                double relativeVelocityX = b2.Velocity.x - b1.Velocity.x;
-                double relativeVelocityY = b2.Velocity.y - b1.Velocity.y;
-
-                double dotProduct = relativeVelocityX * nx + relativeVelocityY * ny;
-
-                if (dotProduct > 0)
-                    return;
-
-                double impulseX = nx * dotProduct;
-                double impulseY = ny * dotProduct;
-
-                b1.Velocity = new Vector(b1.Velocity.x + impulseX, b1.Velocity.y + impulseY);
-                b2.Velocity = new Vector(b2.Velocity.x - impulseX, b2.Velocity.y - impulseY);
-            }
-        }
-
-        #endregion private
-
         #region TestingInfrastructure
+            [Conditional("DEBUG")]
+            internal void CheckBallsList(Action<IEnumerable<IBall>> returnBallsList)
+            {
+                returnBallsList(BallsList);
+            }
 
-        [Conditional("DEBUG")]
-        internal void CheckBallsList(Action<IEnumerable<IBall>> returnBallsList)
-        {
-            returnBallsList(BallsList);
-        }
+            [Conditional("DEBUG")]
+            internal void CheckNumberOfBalls(Action<int> returnNumberOfBalls)
+            {
+                returnNumberOfBalls(BallsList.Count);
+            }
 
-        [Conditional("DEBUG")]
-        internal void CheckNumberOfBalls(Action<int> returnNumberOfBalls)
-        {
-            returnNumberOfBalls(BallsList.Count);
-        }
-
-        [Conditional("DEBUG")]
-        internal void CheckObjectDisposed(Action<bool> returnInstanceDisposed)
-        {
-            returnInstanceDisposed(Disposed);
-        }
-
+            [Conditional("DEBUG")]
+            internal void CheckObjectDisposed(Action<bool> returnInstanceDisposed)
+            {
+                returnInstanceDisposed(Disposed);
+            }
         #endregion TestingInfrastructure
     }
 }

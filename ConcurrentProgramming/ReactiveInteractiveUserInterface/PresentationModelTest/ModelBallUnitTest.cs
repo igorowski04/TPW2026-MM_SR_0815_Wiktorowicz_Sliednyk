@@ -18,14 +18,26 @@ namespace TP.ConcurrentProgramming.Presentation.Model.Test
     public class ModelBallUnitTest
     {
         [TestMethod]
+        // |=======================================================|
+        // |-=- POPRAWNA INICJALIZACJA WARTOŚCI W KONSTRUKTORZE -=-|
+        // |=======================================================|
+        // Test sprawdza czy podczas tworzenia nowej kuli, wartości wsspółrzędnych 
+        // oraz kula z warstwy danych są poprawnie przydzielane
         public void ConstructorTestMethod()
         {
             ModelBall ball = new ModelBall(0.0, 0.0, new BusinessLogicIBallFixture());
             Assert.AreEqual<double>(0.0, ball.Top);
-            Assert.AreEqual<double>(0.0, ball.Left); 
+            Assert.AreEqual<double>(0.0, ball.Left);
+
+            Assert.AreEqual<double>(30.0, ball.Diameter);
         }
 
         [TestMethod]
+        // |=====================================================================|
+        // |-=- POWIADAMIANIE INTERFEJSU GRAFICZNEGO O ZMIANIE POŁOŻENIA KULI -=-|
+        // |=====================================================================|
+        // Test sprawdza, czy interfejs graficzny odbiera informację o tym, że kula zmieniła położenie 
+        // poprzez zdarzenie INotifyPropertyChanged
         public void PositionChangeNotificationTestMethod()
         {
             int notificationCounter = 0;
@@ -45,12 +57,12 @@ namespace TP.ConcurrentProgramming.Presentation.Model.Test
         }
 
         #region testing instrumentation
+            private class BusinessLogicIBallFixture : BusinessLogic.IBall
+            {
+                public event EventHandler<IPosition>? NewPositionNotification;
 
-        private class BusinessLogicIBallFixture : BusinessLogic.IBall
-        {
-            public event EventHandler<IPosition>? NewPositionNotification;
-        }
-
+                public double Radius { get; } = 15.0;
+            }
         #endregion testing instrumentation
     }
 }
