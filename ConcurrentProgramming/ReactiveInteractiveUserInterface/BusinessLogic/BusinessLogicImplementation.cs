@@ -81,7 +81,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             _cancaleTokenSource = new CancellationTokenSource();
             foreach (var ball in _dataBalls)
             {
-                Task.Run(() => MoveBallAsync(ball, _cancaleTokenSource.Token))
+                Task.Run(() => MoveBallAsync(ball, _cancaleTokenSource.Token));
             }
         }
 

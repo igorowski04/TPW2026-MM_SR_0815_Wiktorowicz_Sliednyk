@@ -144,6 +144,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic.Test
             public Data.IVector Velocity { get; set; } = new VectorFixture(0, 0);
             public Data.IVector Position { get; set; } = new VectorFixture(0, 0);
             public double Radius { get; } = 15.0;
+            public double Mass { get; } = 1.0;
 
             public event EventHandler<Data.IVector>? NewPositionNotification;
         }

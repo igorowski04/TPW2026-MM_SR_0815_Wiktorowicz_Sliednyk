@@ -24,7 +24,7 @@ namespace TP.ConcurrentProgramming.Data.Test
         {
             Vector testingVector = new Vector(0.0, 0.0);
             // Podajemy wektor początkowy, wektor prędkości i promień
-            Ball newInstance = new(testingVector, testingVector, 15.0);
+            Ball newInstance = new(testingVector, testingVector, 15.0, 1.0);
             
             Assert.IsNotNull(newInstance);
             Assert.AreEqual(15.0, newInstance.Radius);
@@ -40,7 +40,7 @@ namespace TP.ConcurrentProgramming.Data.Test
         public void PositionChangeNotificationTestMethod()
         {
             Vector startPosition = new Vector(0.0, 0.0);
-            Ball ball = new Ball(startPosition, startPosition, 15.0);
+            Ball ball = new Ball(startPosition, startPosition, 15.0, 1.0);
 
             Vector newPosition = new Vector(10.0, 20.0);
             bool eventWasInvoked = false;
