@@ -23,6 +23,7 @@ namespace TP.ConcurrentProgramming.Data
 
         // Promień i prędkość kuli
         public double Radius { get; }
+        public double Mass { get; }
         public IVector Velocity { get; set; }
         
         // ten fragment pozwala przypisać nową wartość pozycji kuli przy pomocy set.
@@ -42,11 +43,12 @@ namespace TP.ConcurrentProgramming.Data
         // ===================
         // -=- Konstruktor -=-
         // ===================
-        internal Ball(IVector initialPosition, IVector initialVelocity, double radius)
+        internal Ball(IVector initialPosition, IVector initialVelocity, double radius, double mass)
         {
             _position = initialPosition;
             Velocity = initialVelocity;
             Radius = radius;
+            Mass = mass;
         }
     }
 }

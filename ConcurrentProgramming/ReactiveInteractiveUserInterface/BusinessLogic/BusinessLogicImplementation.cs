@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
+using System.Threading.Tasks;
 using UnderneathLayerAPI = TP.ConcurrentProgramming.Data.DataAbstractAPI;
 using DataBall = TP.ConcurrentProgramming.Data.IBall;
 
@@ -29,6 +30,12 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         private List<DataBall> _dataBalls = new(); // Lista kul pobranych z bazy danych
         private double _boardWidth;
         private double _boardHeight;
+        
+        // Kontroler do zatrzymywania wielu wątków na raz
+        private CancellationTokenSource? _cancaleTokenSource;
+        // To jest sekcja krytyczna, któa zabezpiecza przed wyścigiem (Race Condition)
+        private readonly object _collisionLock = new object();
+
 
         #region ctor
         public BusinessLogicImplementation() : this(null) { }
@@ -44,7 +51,10 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         public override void Dispose()
         {
             if (Disposed) return;
-            MoveTimer?.Dispose();
+            // W tym miejscu zatrzymywane są wszystkie asynchroniczne zadania
+            _cancaleTokenSource?.Cancel();
+            _cancaleTokenSource?.Dispose();
+
             layerBellow.Dispose();
             Disposed = true;
         }
@@ -65,88 +75,78 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                 // Przekazujemy nową biznesową kulę wyżej do UI
                 upperLayerHandler(new Position(startingPosition.X, startingPosition.Y), new BusinessBall(dataBall));
             });
-
-            // Odpalamy silnik fizyczny: wywołuj metodę 'Move' co 20 milisekund
-            MoveTimer = new Timer(Move, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(20));
+            
+            // W tym miejscu uruchomiona zostaje współbieżność.
+            // Każda kula wędruje do swojego własnego, żyjącego w tle wątku 
+            _cancaleTokenSource = new CancellationTokenSource();
+            foreach (var ball in _dataBalls)
+            {
+                Task.Run(() => MoveBallAsync(ball, _cancaleTokenSource.Token))
+            }
         }
 
         #endregion BusinessLogicAbstractAPI
 
         #region Physics Engine (Private)
 
-        // Główna pętla przeliczająca fizykę
-        private void Move(object? state)
+        // Pętla asynchroniczna życia kuli
+        private async Task MoveBallAsync(DataBall ball, CancellationToken token)
         {
-            if (Disposed) return;
+            while (!token.IsCancellationRequested)
+            {   
+                // Pojedyńczy wątek zatrzymujemy na 20 ms, żeby nie blokować reszty programu
+                await Task.Delay(20, token); 
 
-            // Zatrzymujemy timer na czas obliczeń, żeby klatki się na siebie nie nakładały
-            MoveTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-
-            try
-            {
-                // 1. Sprawdzamy zderzenia między kulami
-                for (int i = 0; i < _dataBalls.Count; i++)
-                {
-                    for (int j = i + 1; j < _dataBalls.Count; j++)
-                    {
-                        CheckCollision(_dataBalls[i], _dataBalls[j]);
-                    }
-                }
-
-                // 2. Przesuwamy kule i odbijamy od ścian
-                foreach (var ball in _dataBalls)
+                // SEKCJA KRYTYCZNA: W danym momencie tylko jedna kula może aktualizować wektory i badać kolizje
+                lock (_collisionLock)
                 {
                     double newX = ball.Position.X + ball.Velocity.X;
                     double newY = ball.Position.Y + ball.Velocity.Y;
                     double newVx = ball.Velocity.X;
                     double newVy = ball.Velocity.Y;
-
-                    // Odbicie od lewej/prawej ściany
+                    
+                    // Odbicie od lewej / prawej ściany
                     if (newX <= 0)
                     {
                         newX = 0;
                         newVx = -newVx;
-                    }
+                    } 
                     else if (newX + (ball.Radius * 2) >= _boardWidth)
                     {
                         newX = _boardWidth - (ball.Radius * 2);
                         newVx = -newVx;
                     }
 
-                    // Odbicie od górnej/dolnej ściany
+                    // Odbicie od górnej / dolnej ściany
                     if (newY <= 0)
                     {
                         newY = 0;
                         newVy = -newVy;
-                    }
+                    } 
                     else if (newY + (ball.Radius * 2) >= _boardHeight)
                     {
                         newY = _boardHeight - (ball.Radius * 2);
                         newVy = -newVy;
                     }
 
-                    // Nadpisujemy stan w bazie danych korzystając z naszego DataVector
                     ball.Velocity = new DataVector(newVx, newVy);
                     ball.Position = new DataVector(newX, newY);
+
+                    foreach (var otherball in _dataBalls)
+                    {
+                        if (otherball == ball) continue;
+                        CheckCollision(ball, otherball);
+                    }
                 }
-            }
-            finally
-            {
-                // Odpalamy timer na kolejne 20ms
-                MoveTimer?.Change(20, Timeout.Infinite);
             }
         }
 
-        // Skomplikowana matematyka zderzeń idealnie sprężystych
+
+        // Fizyka 2D z uwzględnieniem masy.
         private void CheckCollision(DataBall b1, DataBall b2)
         {
-            double c1X = b1.Position.X + b1.Radius;
-            double c1Y = b1.Position.Y + b1.Radius;
-            double c2X = b2.Position.X + b2.Radius;
-            double c2Y = b2.Position.Y + b2.Radius;
-
-            double dx = c2X - c1X;
-            double dy = c2Y - c1Y;
+            double dx = b2.Position.X - b1.Position.X;
+            double dy = b2.Position.Y - b1.Position.Y;
             double distance = Math.Sqrt(dx * dx + dy * dy);
 
             if (distance == 0) return;
@@ -160,14 +160,19 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                 double relativeVelocityY = b2.Velocity.Y - b1.Velocity.Y;
 
                 double dotProduct = relativeVelocityX * nx + relativeVelocityY * ny;
+
                 if (dotProduct > 0) return;
 
-                double impulseX = nx * dotProduct;
-                double impulseY = ny * dotProduct;
+                double impulse = (2.0 * dotProduct) / (b1.Mass + b2.Mass);
 
-                // Nadpisujemy prędkości po zderzeniu z użyciem adaptera
-                b1.Velocity = new DataVector(b1.Velocity.X + impulseX, b1.Velocity.Y + impulseY);
-                b2.Velocity = new DataVector(b2.Velocity.X - impulseX, b2.Velocity.Y - impulseY);
+                double newVx1 = b1.Velocity.X + (impulse * b2.Mass * nx);
+                double newVy1 = b1.Velocity.Y + (impulse * b2.Mass * ny);
+
+                double newVx2 = b2.Velocity.X - (impulse * b1.Mass * nx);
+                double newVy2 = b2.Velocity.Y - (impulse * b1.Mass * ny);
+
+                b1.Velocity = new DataVector(newVx1, newVy1);
+                b2.Velocity = new DataVector(newVx2, newVy2);
             }
         }
 

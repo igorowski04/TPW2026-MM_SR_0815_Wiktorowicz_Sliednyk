@@ -62,7 +62,7 @@ namespace TP.ConcurrentProgramming.Data
                     Vector initialVelocity = new(vx, vy);
                     
                     
-                    Ball newBall = new(startingPosition, initialVelocity, BallRadius);
+                    Ball newBall = new(startingPosition, initialVelocity, BallRadius, 1.0); // 1.0 to domyślna masa 
                     BallsList.Add(newBall);
                     
                     // Tutaj trafia informacja do wyższej warstwy o tym, że powstała nowa kula
