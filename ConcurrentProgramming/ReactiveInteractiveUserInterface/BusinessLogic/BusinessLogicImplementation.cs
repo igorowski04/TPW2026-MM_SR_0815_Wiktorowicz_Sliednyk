@@ -100,38 +100,21 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                 // SEKCJA KRYTYCZNA: W danym momencie tylko jedna kula może aktualizować wektory i badać kolizje
                 lock (_collisionLock)
                 {
-                    double newX = ball.Position.X + ball.Velocity.X;
-                    double newY = ball.Position.Y + ball.Velocity.Y;
-                    double newVx = ball.Velocity.X;
-                    double newVy = ball.Velocity.Y;
-                    
-                    // Odbicie od lewej / prawej ściany
-                    if (newX <= 0)
-                    {
-                        newX = 0;
-                        newVx = -newVx;
-                    } 
-                    else if (newX + (ball.Radius * 2) >= _boardWidth)
-                    {
-                        newX = _boardWidth - (ball.Radius * 2);
-                        newVx = -newVx;
-                    }
+                    // Tu odjęta została została średnica kuli, żeby łatwiej poruszać się po prostokącie
+                    double effectiveWidth = _boardWidth - (ball.Radius * 2);
+                    double effectiveHeight = _boardHeight - (ball.Radius * 2);
 
-                    // Odbicie od górnej / dolnej ściany
-                    if (newY <= 0)
-                    {
-                        newY = 0;
-                        newVy = -newVy;
-                    } 
-                    else if (newY + (ball.Radius * 2) >= _boardHeight)
-                    {
-                        newY = _boardHeight - (ball.Radius * 2);
-                        newVy = -newVy;
-                    }
+                    // Pozycja kuli
+                    double rawX = ball.Position.X + ball.Velocity.X;
+                    double rawY = ball.Position.Y + ball.Velocity.Y;
 
-                    ball.Velocity = new DataVector(newVx, newVy);
+                    var (newX, newVx) = CalculateModuloBounce(rawX, ball.Velocity.X, effectiveWidth);
+                    var (newY, newVy) = CalculateModuloBounce(rawY, ball.Velocity.Y, effectiveHeight);
+
                     ball.Position = new DataVector(newX, newY);
+                    ball.Velocity = new DataVector(newVx, newVy);
 
+                    // Kolizje miedzy kulami 
                     foreach (var otherball in _dataBalls)
                     {
                         if (otherball == ball) continue;
@@ -141,6 +124,21 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             }
         }
 
+        private (double newPos, double newVel) CalculateModuloBounce(double rawPos, double vel, double maxPos)
+        {
+            if (maxPos <= 0) return (0, vel);
+
+            // TUTAJ JEST POPRAWKA - Zwróć uwagę na nawiasy!
+            double M = ((rawPos % (2 * maxPos)) + (2 * maxPos)) % (2 * maxPos);
+
+            double finalPos = maxPos - Math.Abs(M - maxPos);
+
+            int directionMultipier = (M <= maxPos) ? 1 : -1;
+
+            double finalVel = vel * directionMultipier;
+
+            return (finalPos, finalVel);
+        }
 
         // Fizyka 2D z uwzględnieniem masy.
         private void CheckCollision(DataBall b1, DataBall b2)
