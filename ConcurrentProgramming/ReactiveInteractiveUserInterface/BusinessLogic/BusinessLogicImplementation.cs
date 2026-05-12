@@ -78,6 +78,8 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             
             // W tym miejscu uruchomiona zostaje współbieżność.
             // Każda kula wędruje do swojego własnego, żyjącego w tle wątku 
+            // Task.Run() dla każdej kuli pobiera wolny wątek z tzw. Puli Wątków (ThreadPod)
+            // i zleca wykonywanie wykonywane metody MoveBallAsync
             _cancaleTokenSource = new CancellationTokenSource();
             foreach (var ball in _dataBalls)
             {
@@ -92,9 +94,17 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         // Pętla asynchroniczna życia kuli
         private async Task MoveBallAsync(DataBall ball, CancellationToken token)
         {
+            
+            /// Dopuki nie zamkniemy okna, albo nie wywołamy Dispose() - pętla while się kręci
             while (!token.IsCancellationRequested)
             {   
-                // Pojedyńczy wątek zatrzymujemy na 20 ms, żeby nie blokować reszty programu
+                // Tutaj nie usypiamy kuli, tylko zwalniamy wątek do puli wątków. 
+                // Aby nie tworzyć 100 wątków do 100 kul, po wejściu do metody przebgieg jest następujący: 
+                // 1. do kuli przypisany jest wątek. 2. wchodzi w tym momencie w sekcję krytyczną 
+                // 3. liczy nową pozycję odbicia, no wszystko co niżej 4. Wątek jest zwalniany i odsyłany do puli 
+                // 5. Ta kula musi czekać teraz 20 ms, aż inny wątek zostanie do niej przypisany i zmieni jej pozycję
+                // 20 ms = 50 FPS. Czemu? 
+                // 1 sekunda = 1000 ms. 1000 / 20 = 50.
                 await Task.Delay(20, token); 
 
                 // SEKCJA KRYTYCZNA: W danym momencie tylko jedna kula może aktualizować wektory i badać kolizje
@@ -124,11 +134,18 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             }
         }
 
+        // |==========================|
+        // |-=- ODBICIA KUL MODULO -=-|
+        // |==========================|
+        // W tej metodzie opracowany został algorytm, który obsługuje prędkości większe niż rozmiar planszy
+        // Algorytm na początku liczy, ile pełnych okresów (z A do B i z B do A) mógłby zrobić, żeby pozostać w tej samej pozycji
+        // Przykładowo, jeśli po wyliczona pozycja w następnej chwili, czyli pozycja + prędkośść to 1050, przy szerokości 100
+        // oblicza, że w 1050 pełen okres (czyli 2x szer. planszy[albo wys.]) mieści się 5 razy. wyciąga resztę z dzielenia, 
+        // następnie oblicza standardowe odbicie dla wartości mieszczącej się w zakresie. Finito
         private (double newPos, double newVel) CalculateModuloBounce(double rawPos, double vel, double maxPos)
         {
             if (maxPos <= 0) return (0, vel);
 
-            // TUTAJ JEST POPRAWKA - Zwróć uwagę na nawiasy!
             double M = ((rawPos % (2 * maxPos)) + (2 * maxPos)) % (2 * maxPos);
 
             double finalPos = maxPos - Math.Abs(M - maxPos);
