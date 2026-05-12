@@ -56,9 +56,9 @@ namespace TP.ConcurrentProgramming.Data
                     Vector startingPosition = new(startX, startY);
 
                     //double vx = (RandomGenerator.NextDouble() - 0.5) * 12;
-                    double vx = 10;
+                    double vx = 10000;
                     //double vy = (RandomGenerator.NextDouble() - 0.5) * 12;
-                    double vy = 10;
+                    double vy = 10000;
                     Vector initialVelocity = new(vx, vy);
                     
                     
