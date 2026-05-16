@@ -63,6 +63,10 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         {
             if (Disposed) throw new ObjectDisposedException(nameof(BusinessLogicImplementation));
 
+            // Zatrzymanie asynchronicznych zadań starych kulek
+            _cancaleTokenSource?.Cancel();
+            _cancaleTokenSource?.Dispose();
+
             _boardWidth = width;
             _boardHeight = height;
             _dataBalls.Clear();
@@ -77,9 +81,9 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             });
             
             // W tym miejscu uruchomiona zostaje współbieżność.
-            // Każda kula wędruje do swojego własnego, żyjącego w tle wątku 
-            // Task.Run() dla każdej kuli pobiera wolny wątek z tzw. Puli Wątków (ThreadPod)
-            // i zleca wykonywanie wykonywane metody MoveBallAsync
+            // Task.Run() dla każdej kuli tworzy osobne asynchroniczne Zadanie.
+            // Zadania te nie tworzą wątków, lecz trafiaj do Puli Wątków (ThreadPool)
+            // Systemowa Pula Wątków w tle przydziela im wolne wątki z procesora
             _cancaleTokenSource = new CancellationTokenSource();
             foreach (var ball in _dataBalls)
             {
@@ -99,22 +103,26 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             while (!token.IsCancellationRequested)
             {   
                 // Tutaj nie usypiamy kuli, tylko zwalniamy wątek do puli wątków. 
-                // Aby nie tworzyć 100 wątków do 100 kul, po wejściu do metody przebgieg jest następujący: 
-                // 1. do kuli przypisany jest wątek. 2. wchodzi w tym momencie w sekcję krytyczną 
-                // 3. liczy nową pozycję odbicia, no wszystko co niżej 4. Wątek jest zwalniany i odsyłany do puli 
-                // 5. Ta kula musi czekać teraz 20 ms, aż inny wątek zostanie do niej przypisany i zmieni jej pozycję
-                // 20 ms = 50 FPS. Czemu? 
-                // 1 sekunda = 1000 ms. 1000 / 20 = 50.
-                await Task.Delay(20, token); 
+                // 
+                // 1. Wątek z Puli Wątków pobiera Zadanie przypisane do kuli 
+                // 2. Wchodzi do tej funkcji i jak natrafia na await - kula zasypia na 20 ms
+                //  a Wątek zostaje zwolniony spowrotem do puli 
+                // 3. Zwolniony wątek natychmiast bierze z puli Zadanie kolejnej kuli, dochodzi do await
+                //  usypia ją i bierze kolejną do momentu kiedy nie weźmie wszystkich
+                //  (Cała operacja sprowadzania wszystkich kul trwa ułamek milisekundy)
+                // 4. Po upływie 20 ms Kuli nr 1 spowrotem zostaje przydzielony wolny Wątek
+                // 5. Wątek ten wchodzi do sekcji krytycznej oraz w ułamku milisekundy liczy nowe pozycje,
+                //  odbicia od ścian i aktualizuje wektory. 
+                // 6. Kula wychodzi z sekcji krytycznej oraz zostaje sprawdzona kolizja z innymi kulami za pomocą checkCollisions.
+                // 7. Pętla wraca na początek, kula 1 trafia do await i wątek zostaje zwolniony. 
+                //  Te wszystkie operajcje również trwają ułamek milisekundy 
+                await Task.Delay(20, token);
 
-                // SEKCJA KRYTYCZNA: W danym momencie tylko jedna kula może aktualizować wektory i badać kolizje
-                lock (_collisionLock)
+                lock (ball)
                 {
-                    // Tu odjęta została została średnica kuli, żeby łatwiej poruszać się po prostokącie
-                    double effectiveWidth = _boardWidth - (ball.Radius * 2);
+                    double effectiveWidth = _boardWidth - (ball.Radius * 2); 
                     double effectiveHeight = _boardHeight - (ball.Radius * 2);
 
-                    // Pozycja kuli
                     double rawX = ball.Position.X + ball.Velocity.X;
                     double rawY = ball.Position.Y + ball.Velocity.Y;
 
@@ -123,13 +131,14 @@ namespace TP.ConcurrentProgramming.BusinessLogic
 
                     ball.Position = new DataVector(newX, newY);
                     ball.Velocity = new DataVector(newVx, newVy);
+                } 
 
-                    // Kolizje miedzy kulami 
-                    foreach (var otherball in _dataBalls)
-                    {
-                        if (otherball == ball) continue;
-                        CheckCollision(ball, otherball);
-                    }
+                // 2. Kolizje sprawdzamy poza sekcją krytyczną ruchu. 
+                // Inne wątki mogą teraz wchodzić do powyższego bloku dla innych kul.
+                foreach (var otherball in _dataBalls)
+                {
+                    if (otherball == ball) continue;
+                    CheckCollision(ball, otherball);
                 }
             }
         }
@@ -147,53 +156,74 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             if (maxPos <= 0) return (0, vel);
 
             double M = ((rawPos % (2 * maxPos)) + (2 * maxPos)) % (2 * maxPos);
-
             double finalPos = maxPos - Math.Abs(M - maxPos);
-
             int directionMultipier = (M <= maxPos) ? 1 : -1;
-
             double finalVel = vel * directionMultipier;
-
             return (finalPos, finalVel);
         }
 
         // Fizyka 2D z uwzględnieniem masy.
+        // Kolizje sprawdzane są w momencie wyjścia kuli z sekcji krytycznej 
+        //  ale nadal z przypisanym tym samym wątkiem. 
+        //  W sensie jak do kuli (Zadania) zostanie przypisany wątek: wejście do sekcji krytycznej -> wyjśie -> sprawdzenie kolizji
         private void CheckCollision(DataBall b1, DataBall b2)
         {
+            // Wstępne sprawdzenie dystansu (bez zakładania sekcji krytycznej jeszcze)
             double dx = b2.Position.X - b1.Position.X;
             double dy = b2.Position.Y - b1.Position.Y;
             double distance = Math.Sqrt(dx * dx + dy * dy);
 
-            if (distance == 0) return;
+            // Sprawdzamy, czy odległosci środków kul są równe sumie promieni kul
+            if (distance == 0 || distance > b1.Radius + b2.Radius) return;
 
-            if (distance <= b1.Radius + b2.Radius)
+            // Jeśli kule się zderzają, musimy zablokować obie na czas zmiany ich prędkości.
+            // Używamy GetHashCode(), aby ZAWSZE blokować kule w tej samej kolejności,
+            // co całkowicie eliminuje ryzyko zakleszczenia (Deadlocka).
+            object firstLock = b1.GetHashCode() < b2.GetHashCode() ? b1 : b2;
+            object secondLock = b1.GetHashCode() < b2.GetHashCode() ? b2 : b1;
+
+            lock (firstLock)
             {
-                double nx = dx / distance;
-                double ny = dy / distance;
+                lock (secondLock)
+                {
+                    // Ponownie sprawdzamy dystans, bo kule mogły się przesunąć
+                    // w czasie, gdy czekaliśmy na założenie blokad
+                    dx = b2.Position.X - b1.Position.X;
+                    dy = b2.Position.Y - b1.Position.Y;
+                    distance = Math.Sqrt(dx * dx + dy * dy);
 
-                double relativeVelocityX = b2.Velocity.X - b1.Velocity.X;
-                double relativeVelocityY = b2.Velocity.Y - b1.Velocity.Y;
+                    // Jeśli po uzyskaniu blokad nadal są w kolizji - liczymy fizykę
+                    if (distance <= b1.Radius + b2.Radius)
+                    {
+                        double nx = dx / distance;
+                        double ny = dy / distance;
 
-                double dotProduct = relativeVelocityX * nx + relativeVelocityY * ny;
+                        double relativeVelocityX = b2.Velocity.X - b1.Velocity.X;
+                        double relativeVelocityY = b2.Velocity.Y - b1.Velocity.Y;
 
-                if (dotProduct > 0) return;
+                        double dotProduct = relativeVelocityX * nx + relativeVelocityY * ny;
 
-                double impulse = (2.0 * dotProduct) / (b1.Mass + b2.Mass);
+                        if (dotProduct > 0) return;
 
-                double newVx1 = b1.Velocity.X + (impulse * b2.Mass * nx);
-                double newVy1 = b1.Velocity.Y + (impulse * b2.Mass * ny);
+                        double impulse = (2.0 * dotProduct) / (b1.Mass + b2.Mass);
 
-                double newVx2 = b2.Velocity.X - (impulse * b1.Mass * nx);
-                double newVy2 = b2.Velocity.Y - (impulse * b1.Mass * ny);
+                        double newVx1 = b1.Velocity.X + (impulse * b2.Mass * nx);
+                        double newVy1 = b1.Velocity.Y + (impulse * b2.Mass * ny);
 
-                b1.Velocity = new DataVector(newVx1, newVy1);
-                b2.Velocity = new DataVector(newVx2, newVy2);
+                        double newVx2 = b2.Velocity.X - (impulse * b1.Mass * nx);
+                        double newVy2 = b2.Velocity.Y - (impulse * b1.Mass * ny);
+
+                        // Aktualizacja wektorów
+                        b1.Velocity = new DataVector(newVx1, newVy1);
+                        b2.Velocity = new DataVector(newVx2, newVy2);
+                    }
+                }
             }
         }
 
         #endregion Physics Engine
         #region TestingInfrastructure
-            [Conditional("DEBUG")]
+        [Conditional("DEBUG")]
             internal void CheckObjectDisposed(Action<bool> returnInstanceDisposed)
             {
                 returnInstanceDisposed(Disposed);

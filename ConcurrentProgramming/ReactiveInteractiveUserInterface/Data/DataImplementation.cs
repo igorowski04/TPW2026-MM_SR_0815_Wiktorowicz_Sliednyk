@@ -55,10 +55,10 @@ namespace TP.ConcurrentProgramming.Data
                     double startY = RandomGenerator.NextDouble() * (height - 2 * BallRadius);
                     Vector startingPosition = new(startX, startY);
 
-                    //double vx = (RandomGenerator.NextDouble() - 0.5) * 12;
-                    double vx = 10000;
-                    //double vy = (RandomGenerator.NextDouble() - 0.5) * 12;
-                    double vy = 10000;
+                    double vx = (RandomGenerator.NextDouble() - 0.5) * 12;
+                    //double vx = 1000;
+                    double vy = (RandomGenerator.NextDouble() - 0.5) * 12;
+                    //double vy = 1000;
                     Vector initialVelocity = new(vx, vy);
                     
                     
