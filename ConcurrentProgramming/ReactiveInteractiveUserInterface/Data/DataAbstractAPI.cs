@@ -9,6 +9,7 @@
 //_____________________________________________________________________________________________________________________________________
 
 using System;
+using System.ComponentModel;
 using System.Collections.Generic;
 
 namespace TP.ConcurrentProgramming.Data
@@ -44,12 +45,13 @@ namespace TP.ConcurrentProgramming.Data
     
     public interface IBall
     {
-        // Wyrzucilismy z warstwy danych całą fizykę (była tam metoda Move) teraz warstwa wyżej (logiki)
-        // będzie pobierać z tej warstwy tylko prędkość kuli, promień, a pozycję będzie nadpisywać
-        event EventHandler<IVector> NewPositionNotification;
+        // Tutaj dodane jest unikalne ID dla każdej kuli c:
+        Guid Id { get; }
         IVector Velocity { get; set; }
         IVector Position { get; set; }
         double Radius { get; }
         double Mass { get; }
+
+        event EventHandler<IVector> NewPositionNotification;
     }
 }

@@ -18,6 +18,8 @@ namespace TP.ConcurrentProgramming.Data
         // -=- Zmienne razem z getterem -=-
         // ================================
 
+        // Dodana publiczna zmienna zwracająca ID konkretnej kuli
+        public Guid Id { get; } = Guid.NewGuid();
         private IVector _position;
         public event EventHandler<IVector>? NewPositionNotification;
 

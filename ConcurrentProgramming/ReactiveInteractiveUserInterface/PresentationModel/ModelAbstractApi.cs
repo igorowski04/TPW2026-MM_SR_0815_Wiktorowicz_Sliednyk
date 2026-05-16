@@ -9,6 +9,7 @@
 
 using System;
 using System.ComponentModel;
+using TP.ConcurrentProgramming.BusinessLogic;
 
 namespace TP.ConcurrentProgramming.Presentation.Model
 {
@@ -36,5 +37,9 @@ namespace TP.ConcurrentProgramming.Presentation.Model
         #region IDisposable
             public abstract void Dispose();
         #endregion IDisposable
+
+        public abstract void UpdatePlayerPosition(double x, double y);
     }
+
+    
 }

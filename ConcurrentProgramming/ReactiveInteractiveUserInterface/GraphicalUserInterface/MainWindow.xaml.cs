@@ -9,6 +9,7 @@
 
 using System;
 using System.Windows;
+using System.Windows.Input;
 using TP.ConcurrentProgramming.Presentation.ViewModel;
 
 namespace TP.ConcurrentProgramming.PresentationView
@@ -18,6 +19,16 @@ namespace TP.ConcurrentProgramming.PresentationView
         public MainWindow()
         {
       
+        }
+
+        private void Window_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (this.DataContext is TP.ConcurrentProgramming.Presentation.ViewModel.MainWindowViewModel vm)
+            {
+                // Złapanie pozycji myszy względem okna
+                Point position = e.GetPosition(this);
+                vm.UpdateMousePosition(position.X, position.Y);
+            }
         }
     }
 }

@@ -26,9 +26,12 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             
             #region IDisposable
                 public abstract void Dispose();
-            #endregion IDisposable
+        #endregion IDisposable
 
         #endregion Layer API
+
+        // TUTAJ FUNKCJA DO PRZESUWANIA MYSZY
+        public abstract void UpdatePlayerPosition(double x, double y);
     }
     // Wycieliśmy Position, ponieważ teraz okno będzie przystosowywać się do naszego okna dialogowego
     // Wcześniej na szywno ustawialiśmy wielkość kuli i okna. 

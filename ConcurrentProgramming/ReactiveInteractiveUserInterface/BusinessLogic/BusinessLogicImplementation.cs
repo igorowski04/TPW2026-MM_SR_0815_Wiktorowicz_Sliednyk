@@ -11,10 +11,12 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using UnderneathLayerAPI = TP.ConcurrentProgramming.Data.DataAbstractAPI;
+using TP.ConcurentPrograming.BusinessLogic;
 using DataBall = TP.ConcurrentProgramming.Data.IBall;
+using UnderneathLayerAPI = TP.ConcurrentProgramming.Data.DataAbstractAPI;
 
 namespace TP.ConcurrentProgramming.BusinessLogic
 {
@@ -22,15 +24,16 @@ namespace TP.ConcurrentProgramming.BusinessLogic
     {
         private bool Disposed = false;
         private readonly UnderneathLayerAPI layerBellow;
+        private readonly IDiagnosticLogger _logger;
 
         // ===============
         // -=- ZMIENNE -=-
         // ===============
-        private Timer? MoveTimer; // Nasz silnik czasowy
+        private Timer? MoveTimer;
         private List<DataBall> _dataBalls = new(); // Lista kul pobranych z bazy danych
+        private DataBall? _playerBall;
         private double _boardWidth;
         private double _boardHeight;
-        
         // Kontroler do zatrzymywania wielu wątków na raz
         private CancellationTokenSource? _cancaleTokenSource;
         // To jest sekcja krytyczna, któa zabezpiecza przed wyścigiem (Race Condition)
@@ -38,11 +41,12 @@ namespace TP.ConcurrentProgramming.BusinessLogic
 
 
         #region ctor
-        public BusinessLogicImplementation() : this(null) { }
+        public BusinessLogicImplementation() : this(null, null) { }
 
-        internal BusinessLogicImplementation(UnderneathLayerAPI? underneathLayer)
+        internal BusinessLogicImplementation(UnderneathLayerAPI? underneathLayer = null, IDiagnosticLogger? logger = null)
         {
             layerBellow = underneathLayer ?? UnderneathLayerAPI.GetDataLayer();
+            _logger = logger ?? new DiagnosticLogger();
         }
         #endregion ctor
 
@@ -55,6 +59,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             _cancaleTokenSource?.Cancel();
             _cancaleTokenSource?.Dispose();
 
+            _logger?.Dispose();
             layerBellow.Dispose();
             Disposed = true;
         }
@@ -70,11 +75,18 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             _boardWidth = width;
             _boardHeight = height;
             _dataBalls.Clear();
+            _playerBall = null;
 
             // Odpytujemy warstwę danych (bazę) o wygenerowanie kul
             layerBellow.Start(numberOfBalls, width, height, (startingPosition, dataBall) =>
             {
                 _dataBalls.Add(dataBall);
+
+                // Pierwsza wygenerowana Kula(ta o najniższym UUID) będzie sterowana przez myszkę
+                if (_dataBalls.Count == 1)
+                {
+                    _playerBall = dataBall;
+                }
 
                 // Przekazujemy nową biznesową kulę wyżej do UI
                 upperLayerHandler(new Position(startingPosition.X, startingPosition.Y), new BusinessBall(dataBall));
@@ -91,6 +103,18 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             }
         }
 
+        public override void UpdatePlayerPosition(double x, double y)
+        {
+            if (_playerBall != null)
+            {
+                lock (_playerBall)
+                {
+                    double safeX = Math.Max(0, Math.Min(x - _playerBall.Radius, _boardWidth - _playerBall.Radius * 2));
+                    double safeY = Math.Max(0, Math.Min(y - _playerBall.Radius, _boardHeight - _playerBall.Radius * 2));
+                    _playerBall.Position = new DataVector(safeX, safeY);
+                }
+            }
+        }
         #endregion BusinessLogicAbstractAPI
 
         #region Physics Engine (Private)
@@ -119,18 +143,30 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                 await Task.Delay(20, token);
 
                 lock (ball)
-                {
-                    double effectiveWidth = _boardWidth - (ball.Radius * 2); 
-                    double effectiveHeight = _boardHeight - (ball.Radius * 2);
+                {   
+                    // Kulka sterowana przez nas za pomocą myszki nie jest blokowana. 
+                    // Nie jest sterowana automatycznie
+                    if (ball != _playerBall)
+                    {
+                        double effectiveWidth = _boardWidth - (ball.Radius * 2);
+                        double effectiveHeight = _boardHeight - (ball.Radius * 2);
 
-                    double rawX = ball.Position.X + ball.Velocity.X;
-                    double rawY = ball.Position.Y + ball.Velocity.Y;
+                        double rawX = ball.Position.X + ball.Velocity.X;
+                        double rawY = ball.Position.Y + ball.Velocity.Y;
 
-                    var (newX, newVx) = CalculateModuloBounce(rawX, ball.Velocity.X, effectiveWidth);
-                    var (newY, newVy) = CalculateModuloBounce(rawY, ball.Velocity.Y, effectiveHeight);
+                        var (newX, newVx) = CalculateModuloBounce(rawX, ball.Velocity.X, effectiveWidth);
+                        var (newY, newVy) = CalculateModuloBounce(rawY, ball.Velocity.Y, effectiveHeight);
 
-                    ball.Position = new DataVector(newX, newY);
-                    ball.Velocity = new DataVector(newVx, newVy);
+                        // Tutaj rejestrujemy zderzenie ze ścianą
+                        if (newVx != ball.Velocity.X || newVy != ball.Velocity.Y)
+                        {
+                            _logger.LogCollision(ball, "Wall");
+                        }
+
+                        ball.Position = new DataVector(newX, newY);
+                        ball.Velocity = new DataVector(newVx, newVy);
+                    }
+                    
                 } 
 
                 // 2. Kolizje sprawdzamy poza sekcją krytyczną ruchu. 
@@ -138,7 +174,12 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                 foreach (var otherball in _dataBalls)
                 {
                     if (otherball == ball) continue;
-                    CheckCollision(ball, otherball);
+
+
+                    if (CheckCollision(ball, otherball))
+                    {
+                        _logger.LogCollision(ball, $"Ball_{otherball.Id}");
+                    }
                 }
             }
         }
@@ -166,7 +207,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         // Kolizje sprawdzane są w momencie wyjścia kuli z sekcji krytycznej 
         //  ale nadal z przypisanym tym samym wątkiem. 
         //  W sensie jak do kuli (Zadania) zostanie przypisany wątek: wejście do sekcji krytycznej -> wyjśie -> sprawdzenie kolizji
-        private void CheckCollision(DataBall b1, DataBall b2)
+        private bool CheckCollision(DataBall b1, DataBall b2)
         {
             // Wstępne sprawdzenie dystansu (bez zakładania sekcji krytycznej jeszcze)
             double dx = b2.Position.X - b1.Position.X;
@@ -174,7 +215,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             double distance = Math.Sqrt(dx * dx + dy * dy);
 
             // Sprawdzamy, czy odległosci środków kul są równe sumie promieni kul
-            if (distance == 0 || distance > b1.Radius + b2.Radius) return;
+            if (distance == 0 || distance > b1.Radius + b2.Radius) return false;
 
             // Jeśli kule się zderzają, musimy zablokować obie na czas zmiany ich prędkości.
             // Używamy GetHashCode(), aby ZAWSZE blokować kule w tej samej kolejności,
@@ -203,7 +244,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
 
                         double dotProduct = relativeVelocityX * nx + relativeVelocityY * ny;
 
-                        if (dotProduct > 0) return;
+                        if (dotProduct > 0) return false;
 
                         double impulse = (2.0 * dotProduct) / (b1.Mass + b2.Mass);
 
@@ -216,9 +257,12 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                         // Aktualizacja wektorów
                         b1.Velocity = new DataVector(newVx1, newVy1);
                         b2.Velocity = new DataVector(newVx2, newVy2);
+
+                        return true;
                     }
                 }
             }
+            return false;
         }
 
         #endregion Physics Engine

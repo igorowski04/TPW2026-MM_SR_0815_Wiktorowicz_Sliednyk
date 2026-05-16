@@ -31,7 +31,7 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         private bool Disposed = false;
         private string numberOfBallsInput = "5";
 
-        // Wyciągamy magiczne liczby na górę - reprezentują rozmiar naszego okna/płótna (Canvas)
+        
         private readonly double _boardWidth = 700;
         private readonly double _boardHeight = 400;
 
@@ -83,6 +83,10 @@ namespace TP.ConcurrentProgramming.Presentation.ViewModel
         /// </summary>
         public ObservableCollection<ModelIBall> Balls { get; } = new ObservableCollection<ModelIBall>();
 
+        public void UpdateMousePosition(double x, double y)
+        {
+            ModelLayer.UpdatePlayerPosition(x, y);
+        }
         #endregion public API
 
         #region private

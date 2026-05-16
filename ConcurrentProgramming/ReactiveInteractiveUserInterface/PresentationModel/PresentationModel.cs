@@ -45,6 +45,11 @@ namespace TP.ConcurrentProgramming.Presentation.Model
             {
                 layerBellow.Start(numberOfBalls, width, height, StartHandler);
             }
+
+            public override void UpdatePlayerPosition(double x, double y)
+            {
+                layerBellow.UpdatePlayerPosition(x, y);
+            }
         #endregion ModelAbstractApi
 
         #region API
@@ -85,7 +90,6 @@ namespace TP.ConcurrentProgramming.Presentation.Model
         #endregion TestingInfrastructure
     }
 
-    // Poprawiona literówka (Chane -> Changed)
     public class BallChangedEventArgs : EventArgs
     {
         public required IBall Ball { get; init; }
