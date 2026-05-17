@@ -32,6 +32,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         private Timer? MoveTimer;
         private List<DataBall> _dataBalls = new(); // Lista kul pobranych z bazy danych
         private DataBall? _playerBall;
+        private DataVector _lastPlayerPosition = new DataVector(0, 0);
         private double _boardWidth;
         private double _boardHeight;
         // Kontroler do zatrzymywania wielu wątków na raz
@@ -111,6 +112,10 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                 {
                     double safeX = Math.Max(0, Math.Min(x - _playerBall.Radius, _boardWidth - _playerBall.Radius * 2));
                     double safeY = Math.Max(0, Math.Min(y - _playerBall.Radius, _boardHeight - _playerBall.Radius * 2));
+
+                    double velocityX = safeX - _playerBall.Position.X;
+                    double velocityY = safeY - _playerBall.Position.Y;
+
                     _playerBall.Position = new DataVector(safeX, safeY);
                 }
             }
@@ -144,6 +149,14 @@ namespace TP.ConcurrentProgramming.BusinessLogic
 
                 lock (ball)
                 {   
+                    if (ball == _playerBall)
+                    {
+                        double velX = ball.Position.X - _lastPlayerPosition.X;
+                        double velY = ball.Position.Y - _lastPlayerPosition.Y;
+                        ball.Velocity = new DataVector(velX, velY);
+                        _lastPlayerPosition = new DataVector(ball.Position.X, ball.Position.Y);
+                    }
+
                     // Kulka sterowana przez nas za pomocą myszki nie jest blokowana. 
                     // Nie jest sterowana automatycznie
                     if (ball != _playerBall)
@@ -223,42 +236,14 @@ namespace TP.ConcurrentProgramming.BusinessLogic
                     // Zabezpieczenie przed dzieleniem przez zero i brak kolizji
                     if (distance == 0 || distance > b1.Radius + b2.Radius) return false;
 
-                    // WYPYCHANIE KUL (Rozdzielenie ich, gdy delikatnie na siebie najdą)
-                    double overlap = (b1.Radius + b2.Radius) - distance;
-                    if (overlap > 0)
-                    {
-                        double nx = dx / distance;
-                        double ny = dy / distance;
-
-                        if (b1 == _playerBall)
-                        {
-                            b2.Position = new DataVector(b2.Position.X + nx * overlap, b2.Position.Y + ny * overlap);
-                        }
-                        else if (b2 == _playerBall)
-                        {
-                            b1.Position = new DataVector(b1.Position.X - nx * overlap, b1.Position.Y - ny * overlap);
-                        }
-                        else
-                        {
-                            b1.Position = new DataVector(b1.Position.X - nx * (overlap / 2.0), b1.Position.Y - ny * (overlap / 2.0));
-                            b2.Position = new DataVector(b2.Position.X + nx * (overlap / 2.0), b2.Position.Y + ny * (overlap / 2.0));
-                        }
-                    }
-
-                    // Przeliczenie odległości po wypchnięciu (aby nowe kąty były idealne)
-                    dx = b2.Position.X - b1.Position.X;
-                    dy = b2.Position.Y - b1.Position.Y;
-                    distance = Math.Sqrt(dx * dx + dy * dy);
-                    if (distance == 0) distance = 1;
-
                     double nx_final = dx / distance;
                     double ny_final = dy / distance;
 
                     // Przyjmujemy, że nasza kula stoi w miejscu, żeby nie wysyłała dodatkowej energii do układu
-                    double vx1 = b1 == _playerBall ? 0 : b1.Velocity.X;
-                    double vy1 = b1 == _playerBall ? 0 : b1.Velocity.Y;
-                    double vx2 = b2 == _playerBall ? 0 : b2.Velocity.X;
-                    double vy2 = b2 == _playerBall ? 0 : b2.Velocity.Y;
+                    double vx1 = b1.Velocity.X;
+                    double vy1 = b1.Velocity.Y;
+                    double vx2 = b2.Velocity.X;
+                    double vy2 = b2.Velocity.Y;
 
                     double relativeVelocityX = vx2 - vx1;
                     double relativeVelocityY = vy2 - vy1;
@@ -293,6 +278,7 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         }
 
         #endregion Physics Engine
+
         #region TestingInfrastructure
         [Conditional("DEBUG")]
             internal void CheckObjectDisposed(Action<bool> returnInstanceDisposed)
