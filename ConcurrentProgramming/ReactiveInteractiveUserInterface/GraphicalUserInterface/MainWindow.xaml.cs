@@ -21,12 +21,12 @@ namespace TP.ConcurrentProgramming.PresentationView
       
         }
 
-        private void Window_MouseMove(object sender, MouseEventArgs e)
+        private void Window_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
             if (this.DataContext is TP.ConcurrentProgramming.Presentation.ViewModel.MainWindowViewModel vm)
             {
                 // Złapanie pozycji myszy względem okna
-                Point position = e.GetPosition(this);
+                var position = e.GetPosition(BillardTable);
                 vm.UpdateMousePosition(position.X, position.Y);
             }
         }

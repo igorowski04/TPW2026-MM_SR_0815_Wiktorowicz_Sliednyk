@@ -209,17 +209,6 @@ namespace TP.ConcurrentProgramming.BusinessLogic
         //  W sensie jak do kuli (Zadania) zostanie przypisany wątek: wejście do sekcji krytycznej -> wyjśie -> sprawdzenie kolizji
         private bool CheckCollision(DataBall b1, DataBall b2)
         {
-            // Wstępne sprawdzenie dystansu (bez zakładania sekcji krytycznej jeszcze)
-            double dx = b2.Position.X - b1.Position.X;
-            double dy = b2.Position.Y - b1.Position.Y;
-            double distance = Math.Sqrt(dx * dx + dy * dy);
-
-            // Sprawdzamy, czy odległosci środków kul są równe sumie promieni kul
-            if (distance == 0 || distance > b1.Radius + b2.Radius) return false;
-
-            // Jeśli kule się zderzają, musimy zablokować obie na czas zmiany ich prędkości.
-            // Używamy GetHashCode(), aby ZAWSZE blokować kule w tej samej kolejności,
-            // co całkowicie eliminuje ryzyko zakleszczenia (Deadlocka).
             object firstLock = b1.GetHashCode() < b2.GetHashCode() ? b1 : b2;
             object secondLock = b1.GetHashCode() < b2.GetHashCode() ? b2 : b1;
 
@@ -227,42 +216,80 @@ namespace TP.ConcurrentProgramming.BusinessLogic
             {
                 lock (secondLock)
                 {
-                    // Ponownie sprawdzamy dystans, bo kule mogły się przesunąć
-                    // w czasie, gdy czekaliśmy na założenie blokad
-                    dx = b2.Position.X - b1.Position.X;
-                    dy = b2.Position.Y - b1.Position.Y;
-                    distance = Math.Sqrt(dx * dx + dy * dy);
+                    double dx = b2.Position.X - b1.Position.X;
+                    double dy = b2.Position.Y - b1.Position.Y;
+                    double distance = Math.Sqrt(dx * dx + dy * dy);
 
-                    // Jeśli po uzyskaniu blokad nadal są w kolizji - liczymy fizykę
-                    if (distance <= b1.Radius + b2.Radius)
+                    // Zabezpieczenie przed dzieleniem przez zero i brak kolizji
+                    if (distance == 0 || distance > b1.Radius + b2.Radius) return false;
+
+                    // WYPYCHANIE KUL (Rozdzielenie ich, gdy delikatnie na siebie najdą)
+                    double overlap = (b1.Radius + b2.Radius) - distance;
+                    if (overlap > 0)
                     {
                         double nx = dx / distance;
                         double ny = dy / distance;
 
-                        double relativeVelocityX = b2.Velocity.X - b1.Velocity.X;
-                        double relativeVelocityY = b2.Velocity.Y - b1.Velocity.Y;
-
-                        double dotProduct = relativeVelocityX * nx + relativeVelocityY * ny;
-
-                        if (dotProduct > 0) return false;
-
-                        double impulse = (2.0 * dotProduct) / (b1.Mass + b2.Mass);
-
-                        double newVx1 = b1.Velocity.X + (impulse * b2.Mass * nx);
-                        double newVy1 = b1.Velocity.Y + (impulse * b2.Mass * ny);
-
-                        double newVx2 = b2.Velocity.X - (impulse * b1.Mass * nx);
-                        double newVy2 = b2.Velocity.Y - (impulse * b1.Mass * ny);
-
-                        // Aktualizacja wektorów
-                        b1.Velocity = new DataVector(newVx1, newVy1);
-                        b2.Velocity = new DataVector(newVx2, newVy2);
-
-                        return true;
+                        if (b1 == _playerBall)
+                        {
+                            b2.Position = new DataVector(b2.Position.X + nx * overlap, b2.Position.Y + ny * overlap);
+                        }
+                        else if (b2 == _playerBall)
+                        {
+                            b1.Position = new DataVector(b1.Position.X - nx * overlap, b1.Position.Y - ny * overlap);
+                        }
+                        else
+                        {
+                            b1.Position = new DataVector(b1.Position.X - nx * (overlap / 2.0), b1.Position.Y - ny * (overlap / 2.0));
+                            b2.Position = new DataVector(b2.Position.X + nx * (overlap / 2.0), b2.Position.Y + ny * (overlap / 2.0));
+                        }
                     }
+
+                    // Przeliczenie odległości po wypchnięciu (aby nowe kąty były idealne)
+                    dx = b2.Position.X - b1.Position.X;
+                    dy = b2.Position.Y - b1.Position.Y;
+                    distance = Math.Sqrt(dx * dx + dy * dy);
+                    if (distance == 0) distance = 1;
+
+                    double nx_final = dx / distance;
+                    double ny_final = dy / distance;
+
+                    // Przyjmujemy, że nasza kula stoi w miejscu, żeby nie wysyłała dodatkowej energii do układu
+                    double vx1 = b1 == _playerBall ? 0 : b1.Velocity.X;
+                    double vy1 = b1 == _playerBall ? 0 : b1.Velocity.Y;
+                    double vx2 = b2 == _playerBall ? 0 : b2.Velocity.X;
+                    double vy2 = b2 == _playerBall ? 0 : b2.Velocity.Y;
+
+                    double relativeVelocityX = vx2 - vx1;
+                    double relativeVelocityY = vy2 - vy1;
+                    double dotProduct = relativeVelocityX * nx_final + relativeVelocityY * ny_final;
+
+                    if (dotProduct > 0) return false; // Kule już się od siebie oddalają
+
+                    // Oznaczamy kulę gracza masą miliona, żeby nie zwalniała
+                    double m1 = b1 == _playerBall ? 1000000 : b1.Mass;
+                    double m2 = b2 == _playerBall ? 1000000 : b2.Mass;
+
+                    // CZYSTA FIZYKA: Idealne zderzenie sprężyste (brak limitów, wymóg dla V=1000)
+                    double impulse = (2.0 * dotProduct) / (m1 + m2);
+
+                    if (b1 != _playerBall)
+                    {
+                        double newVx = b1.Velocity.X + (impulse * m2 * nx_final);
+                        double newVy = b1.Velocity.Y + (impulse * m2 * ny_final);
+                        b1.Velocity = new DataVector(newVx, newVy);
+                    }
+
+                    if (b2 != _playerBall)
+                    {
+                        double newVx = b2.Velocity.X - (impulse * m1 * nx_final);
+                        double newVy = b2.Velocity.Y - (impulse * m1 * ny_final);
+                        b2.Velocity = new DataVector(newVx, newVy);
+                    }
+
+                    return true;
                 }
             }
-            return false;
         }
 
         #endregion Physics Engine

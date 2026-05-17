@@ -22,7 +22,7 @@
             <Button Content="Start" Command="{Binding StartCommand}" Width="80" Background="LightGreen" FontWeight="Bold"/>
         </StackPanel>
 
-        <Border Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" BorderThickness="4" BorderBrush="Green" Margin="10" Background="WhiteSmoke">
+        <Border x:Name="BillardTable"  Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" BorderThickness="4" BorderBrush="Green" Margin="10" Background="WhiteSmoke">
             <ItemsControl ItemsSource="{Binding Balls}">
 
                 <ItemsControl.ItemsPanel>
